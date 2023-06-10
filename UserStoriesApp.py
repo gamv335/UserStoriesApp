@@ -7,6 +7,7 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.chains.question_answering import load_qa_chain
 from langchain.llms import OpenAI
+from langchain.chat_models import ChatOpenAI
 
 # App main code 
 def main():
@@ -20,9 +21,10 @@ def main():
     ctx_doc = st.file_uploader("Upload role and context", type=".txt")
 
     # Read the document
-    if fb_doc is not None:
-        # Extract text from the document
+    if fb_doc and ctx_doc is not None:
+        # Extract text from the documents
         feedback = fb_doc.read().decode("utf-8")
+        context = ctx_doc.read().decode("utf-8")
 
         # Split the documents into chunks
         text_splitter = CharacterTextSplitter(
@@ -38,25 +40,39 @@ def main():
         knowledge_base = FAISS.from_texts(chunks, embeddings)
         
         # Openai request prompt
-        prompt = f"""Could you write user stories using the framework: 'As a [user role], 
+        prompt = f"""{context}.Could you write user stories using the framework: 'As a [user role], 
             I would like to [action], so that [benefit],' based on the previous feedback from 
-            the user found in the document? Please separate them with "\n"
+            the user found in the document? End paragraph after each user story.
             """
         docs = knowledge_base.similarity_search(prompt)
-        llm = OpenAI()
+        llm = ChatOpenAI(model_name="gpt-3.5-turbo")
         chain = load_qa_chain(llm, chain_type="stuff")
         response = chain.run(input_documents=docs, question=prompt)
 
         # Get ai responses
         # user_stories = response.choices[0].message.content
-        user_stories_list = response.split('\n')
+        user_stories_list = response.split('\n\n')
         user_stories_list = [string.strip() for string in user_stories_list]
         print(user_stories_list)
-        
-
-        # Print user stories from ai response
+        # Display user stories from ai response
         st.subheader("User stories:")
-        st.write(response)
+        
+        # For each stories ask OpenAI for definitions of done
+        for index, story in enumerate(user_stories_list):
+            st.write(f"User story {index + 1}: {story}")
+            prompt = f"""{context}. Please write a set of user criteria based on the following user stoy: {story}
+            """
+            # Generate user definitions of done
+            response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000,
+            #=10,  # Generate 3 user stories
+            stop=None,
+            )
+            def_done = response.choices[0].message.content
+
+            st.write(def_done)
 
 if __name__ == '__main__':
     main()
