@@ -1,6 +1,7 @@
 # Import libraries 
 import openai
 import os
+import docx
 import streamlit as st
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.embeddings.openai import OpenAIEmbeddings
@@ -8,6 +9,20 @@ from langchain.vectorstores import FAISS
 from langchain.chains.question_answering import load_qa_chain
 from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
+
+# Functions 
+def getText(uploaded_file):
+    # Open the uploaded DOCX file
+    doc = docx.Document(uploaded_file)
+
+    # Store the document content in a variable
+    document_content = ""
+
+    # Concatenate the text of all paragraphs
+    for paragraph in doc.paragraphs:
+        document_content += paragraph.text + "\n"
+
+    return document_content
 
 # App main code 
 def main():
@@ -17,13 +32,13 @@ def main():
     # Load the UI 
     st.set_page_config(page_title="User Stories Generator App")
     st.header("Analyse you user's feedback 💬")
-    fb_doc = st.file_uploader("Upload the user's feedback", type=".txt")
+    fb_doc = st.file_uploader("Upload the user's feedback", type=".docx")
     ctx_doc = st.file_uploader("Upload role and context", type=".txt")
 
     # Read the document
     if fb_doc and ctx_doc is not None:
         # Extract text from the documents
-        feedback = fb_doc.read().decode("utf-8")
+        feedback = getText(fb_doc) #fb_doc.read().decode("utf-8")
         context = ctx_doc.read().decode("utf-8")
 
         # Split the documents into chunks
